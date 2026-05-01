@@ -20,7 +20,6 @@
 ### How We Measure
 - Task completion: manual review of 100 test queries
 - Hallucination: compare AI output against actual CSV data
-- Retention: tracked via session logs
 - Savings action: follow-up survey after 30 days
 
 ### What Good Looks Like
