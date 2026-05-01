@@ -30,3 +30,6 @@ This project was built with an AI Product Manager lens. See /docs for:
 - LLM context injection and prompt engineering
 - Statistical anomaly detection
 - Translating user needs into product requirements
+
+Note: transactions.csv contains sample/mock data for demo purposes only. 
+In production, data would be fetched live via TrueLayer Open Banking API.
