@@ -4,7 +4,6 @@ import pandas as pd
 from data_processor import load_transactions, detect_anomalies
 from ai_assistant import chat
 from bank_parser import detect_and_parse
-from truelayer_auth import get_auth_url, exchange_code_for_token, fetch_transactions, parse_truelayer_transactions
 
 # ---- Page config ----
 st.set_page_config(page_title="Finance AI Assistant", page_icon="💰", layout="centered")
@@ -13,71 +12,44 @@ st.set_page_config(page_title="Finance AI Assistant", page_icon="💰", layout="
 st.title("💰 Personal Finance Assistant")
 st.caption("Your AI-powered spending analyst")
 
-# ---- Check for TrueLayer callback ----
-query_params = st.query_params
-auth_code = query_params.get("code", None)
-
-if auth_code and "truelayer_df" not in st.session_state:
-    with st.spinner("🔗 Connecting to your bank..."):
-        try:
-            token = exchange_code_for_token(auth_code)
-            raw = fetch_transactions(token)
-            st.session_state.truelayer_df = parse_truelayer_transactions(raw)
-            st.session_state.messages = []
-            st.session_state.history = []
-            st.query_params.clear()
-            st.success("✅ Bank connected successfully!")
-        except Exception as e:
-            st.error(f"❌ Bank connection failed: {e}")
-
 # ---- Data source selection ----
 st.markdown("### Step 1 — Connect your data")
 data_option = st.radio(
     "How would you like to load your transactions?",
-    ["🏦 Connect my bank account", "📂 Upload my bank statement", "📊 Use sample data"],
+    ["📄 Upload my bank statement", "📊 Use sample data"],
     horizontal=True
 )
 
 df = None
+uploaded_file = None
 
-if data_option == "🏦 Connect my bank account":
-    if "truelayer_df" in st.session_state:
-        df = st.session_state.truelayer_df
-        st.success(f"✅ Bank connected — {len(df)} transactions loaded!")
-        if st.button("🔄 Disconnect and reconnect"):
-            del st.session_state.truelayer_df
-            st.rerun()
-    else:
-        st.markdown("Connect your bank account securely via **Open Banking** 🔒")
-        st.caption("Uses OAuth 2.0 — we never see your login credentials")
-        
-        auth_url = get_auth_url()
-        st.link_button("🏦 Connect Bank Account", auth_url)
-        
-        st.info("""
-        **How it works:**
-        1. Click the button above
-        2. Log in with test credentials: **john / doe**
-        3. Click Allow on the consent screen
-        4. You'll be redirected back automatically
-        """)
+if data_option == "📄 Upload my bank statement":
+    st.markdown("Upload your bank statement — works with **any bank worldwide** 🌍")
+    st.caption("Accepts PDF or CSV — Barclays, Lloyds, HSBC, NatWest, Monzo, Revolut and more")
 
-elif data_option == "📂 Upload my bank statement":
-    st.markdown("Upload your bank statement CSV — works with **any bank worldwide** 🌍")
-    st.caption("Barclays, Lloyds, HSBC, NatWest, Monzo, Revolut, Chase, and more")
-
-    uploaded_file = st.file_uploader("Choose your bank statement", type="csv")
+    uploaded_file = st.file_uploader(
+        "Choose your bank statement",
+        type=["pdf", "csv"]
+    )
 
     if uploaded_file:
         with st.spinner("🤖 Reading your bank statement..."):
             try:
                 df = detect_and_parse(uploaded_file)
-                st.success(f"✅ Loaded {len(df)} transactions!")
+                st.success(f"✅ Loaded {len(df)} transactions from your bank statement!")
             except Exception as e:
                 st.error(f"❌ Could not parse file: {e}")
                 df = None
     else:
-        st.info("👆 Upload any bank statement CSV to get started.")
+        st.info("👆 Upload your bank statement PDF or CSV to get started.")
+        st.markdown("""
+        **How to export from your bank:**
+        - **Barclays** → Online Banking → Statements → Download PDF
+        - **Lloyds** → Internet Banking → Statements → View/Download
+        - **Monzo** → App → Account → Download Statement
+        - **Revolut** → App → Profile → Statements → PDF
+        - **HSBC** → Online Banking → Accounts → Export
+        """)
 
 else:
     df = load_transactions()
@@ -125,6 +97,15 @@ if df is not None:
         st.session_state.messages = []
     if "history" not in st.session_state:
         st.session_state.history = []
+
+    # Reset chat if new file uploaded
+    if "last_file" not in st.session_state:
+        st.session_state.last_file = None
+    current_file = data_option + (uploaded_file.name if uploaded_file else "")
+    if current_file != st.session_state.last_file:
+        st.session_state.messages = []
+        st.session_state.history = []
+        st.session_state.last_file = current_file
 
     # Display chat history
     for msg in st.session_state.messages:
